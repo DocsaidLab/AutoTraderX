@@ -8,17 +8,29 @@
 
 ## 安裝必要套件
 
-確保你的程式執行環境，根據以下步驟執行。
+由於本專案為私有專案，因此只能透過 SSH 協議下載。
 
-1. 使用 MiniConda 安裝 Python 環境。
+請你確保有將自己的 SSH-PubKey 已經新增至 github 帳號，接著：
 
-2. 安裝必要 Python 套件：
+1. 使用 git clone 下載專案
 
+   ```bash
+   git clone git@github.com:DocsaidLab/AutoTraderX.git
    ```
-   pip install ./MasterLink_PythonAPI/MasterTradePy/MasterTradePy/64bit/MasterTradePy-0.0.23-py3-none-win_amd64.whl
-   pip install ./MasterLink_PythonAPI/Python_tech_analysis/tech_analysis_api_v2-0.0.5-py3-none-win_amd64.whl
-   pip install ./MasterLink_PythonAPI/SolPYAPI/PY_TradeD-0.1.15-py3-none-any.whl
-   ```
+
+2. 安裝必要套件
+
+   確保你的程式執行環境，根據以下步驟執行。
+
+   - 使用 MiniConda 安裝 Python 環境。
+
+   - 安裝必要 Python 套件：
+
+     ```bash
+     pip install ./MasterLink_PythonAPI/MasterTradePy/MasterTradePy/64bit/MasterTradePy-0.0.23-py3-none-win_amd64.whl
+     pip install ./MasterLink_PythonAPI/Python_tech_analysis/tech_analysis_api_v2-0.0.5-py3-none-win_amd64.whl
+     pip install ./MasterLink_PythonAPI/SolPYAPI/PY_TradeD-0.1.15-py3-none-any.whl
+     ```
 
 ## 設定交易參數
 
