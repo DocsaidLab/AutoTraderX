@@ -40,6 +40,37 @@
      pip install ./MasterLink_PythonAPI/SolPYAPI/PY_TradeD-0.1.15-py3-none-any.whl
      ```
 
-## 設定交易參數
+## 主程式開發紀錄
 
-## 啟動主程式
+- 主程式：[`main.py`](./main.py)
+
+- 2024/05/07：
+
+  - PythonAPI 線上下單驗證成功。
+  - PythonAPI 報價系統驗證成功。
+
+- 2024/05/11：
+
+  - 新增主程式
+
+    - 重新設計下單操作介面
+    - 串接元富證券 API，並且進行登入、登出的測試。
+    - 查詢庫存測試：get_inventory()：取得帳戶持股資訊。
+
+  - 懸念：
+
+    - 這個 qid 似乎不是一個即時的回傳結果，必須有 pause 才能看到輸出，這裡之後看要怎麼串接這個回傳結果
+    - 目前券商開放的 API 接口有限，庫存的成交明細無法取得，這裡之後要再想辦法
+    - 之後得接著看報價系統該如何串接到主程式。
+
+  - 目前可以玩的功能：
+
+    ```python
+    handler = AutoTraderX(is_sim=True)
+
+    handler.login()
+    handler.get_inventory()
+    handler.get_order_report()
+    handler.get_trade_report()
+    handler.stop()
+    ```
