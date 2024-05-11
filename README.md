@@ -6,6 +6,14 @@
 
 由於該公司提供的 API 僅能在 Windows 環境下執行，因此使用者必須具備基於 Windows 的 Python 作業環境。
 
+## 學習資源
+
+- [**股票量化交易從零開始（一）元富證券 API 權限申請**](https://quantpass.org/masterlink-api/)
+- [**股票量化交易從零開始（二）Python 環境設置**](https://quantpass.org/masterlink-3/)
+- [**股票量化交易從零開始（三）驗證行情與下單權限申請**](https://quantpass.org/masterlink-4/)
+- [**股票量化交易從零開始（四）抓取股價歷史資料**](https://quantpass.org/masterlink-5/)
+- [**股票量化交易從零開始（五）台股交易策略**](https://quantpass.org/masterlink-6/)
+
 ## 安裝必要套件
 
 由於本專案為私有專案，因此只能透過 SSH 協議下載。
