@@ -1,3 +1,5 @@
+import errno
+import os
 from pathlib import Path
 from typing import Any, List, Tuple, Union
 
@@ -5,6 +7,8 @@ import yaml
 from MasterTradePy.model import (Basic, CrQtyAndDbQty, Inventory, Inventory_S,
                                  MarketTrader, ReportOrder, SecInvQty,
                                  SystemEvent)
+from natsort import natsorted
+from tqdm import tqdm as Tqdm
 
 
 class ConcreteMarketTrader(MarketTrader):
@@ -103,3 +107,54 @@ def load_yaml(path: Union[Path, str]) -> dict:
     with open(str(path), 'r') as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     return data
+
+
+def get_curdir(
+    path: Union[str, Path],
+    absolute: bool = True
+) -> Path:
+    path = Path(path).absolute() if absolute else Path(path)
+    return path.parent.resolve()
+
+
+def get_files(
+    folder: Union[str, Path],
+    suffix: Union[str, List[str], Tuple[str]] = None,
+    recursive: bool = True,
+    return_pathlib: bool = True,
+    sort_path: bool = True,
+    ignore_letter_case: bool = True,
+):
+
+    # checking folders
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise FileNotFoundError(
+            errno.ENOENT, os.strerror(errno.ENOENT), str(folder))
+
+    if not isinstance(suffix, (str, list, tuple)) and suffix is not None:
+        raise TypeError('suffix must be a string, list or tuple.')
+
+    # checking suffix
+    suffix = [suffix] if isinstance(suffix, str) else suffix
+    if suffix is not None and ignore_letter_case:
+        suffix = [s.lower() for s in suffix]
+
+    if recursive:
+        files_gen = folder.rglob('*')
+    else:
+        files_gen = folder.glob('*')
+
+    files = []
+    for f in Tqdm(files_gen, leave=False):
+        if suffix is None or (ignore_letter_case and f.suffix.lower() in suffix) \
+                or (not ignore_letter_case and f.suffix in suffix):
+            files.append(f.absolute())
+
+    if not return_pathlib:
+        files = [str(f) for f in files]
+
+    if sort_path:
+        files = natsorted(files, key=lambda path: str(path).lower())
+
+    return files

@@ -9,9 +9,9 @@ from MasterTradePy.constant import (OrderType, PriceType, RCode, Side,
                                     TradingSession, TradingUnit)
 from MasterTradePy.model import *
 
-from utils import ConcreteMarketTrader, load_yaml
+from utils import ConcreteMarketTrader, get_curdir, get_files, load_yaml
 
-DIR = Path(__file__).resolve().parent
+DIR = get_curdir(__file__)
 
 
 class AutoTraderX:
@@ -31,6 +31,8 @@ class AutoTraderX:
         self.is_force = is_force
         self.is_event = is_event
         self.status = None
+
+        self.subscribed = get_files(DIR / "subscribed", suffix=[".yaml"])
 
     def login(self):
         trader = ConcreteMarketTrader()
