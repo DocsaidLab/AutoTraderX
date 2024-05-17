@@ -9,6 +9,7 @@ from MasterTradePy.constant import (OrderType, PriceType, RCode, Side,
                                     TradingSession, TradingUnit)
 from MasterTradePy.model import *
 
+from quotation_system import QuotationSystem
 from utils import ConcreteMarketTrader, get_curdir, get_files, load_yaml
 
 DIR = get_curdir(__file__)
@@ -21,6 +22,7 @@ class AutoTraderX:
         is_sim: bool = True,    # 是否連測試主機
         is_force: bool = True,  # 是否單一帳號通過強制登入
         is_event: bool = False,  # 是否連接競賽主機
+        target: str = None,     # 操作標的
     ):
         cfg = load_yaml(DIR / "account.yaml")
 
@@ -32,7 +34,7 @@ class AutoTraderX:
         self.is_event = is_event
         self.status = None
 
-        self.subscribed = get_files(DIR / "subscribed", suffix=[".yaml"])
+        # self.quotation = QuotationSystem(self.username, self.password, target)
 
     def login(self):
         trader = ConcreteMarketTrader()
@@ -61,10 +63,8 @@ class AutoTraderX:
         # 這裡之後看要怎麼串接這個回傳結果
         qid = self.api.ReqInventoryRayinTotal(self.account_number)
         print(f"\n\n查詢庫存...{qid}\n\n")
-        os.system("pause")
 
     # 查詢成交回報
-
     def get_trade_report(self) -> List[Dict[str, Union[str, int]]]:
         self.api.QryRepDeal(self.account_number)
 
@@ -114,10 +114,11 @@ class AutoTraderX:
         pass
 
 
-handler = AutoTraderX(is_sim=True)
+handler = AutoTraderX(is_sim=False)
 
 handler.login()
 handler.get_inventory()
-handler.get_order_report()
-handler.get_trade_report()
+# os.system("pause")
+# handler.get_order_report()
+# handler.get_trade_report()
 handler.stop()

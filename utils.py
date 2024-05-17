@@ -1,6 +1,10 @@
 import errno
 import os
+import time
+from datetime import datetime
+from enum import Enum, IntEnum
 from pathlib import Path
+from time import struct_time
 from typing import Any, List, Tuple, Union
 
 import yaml
@@ -158,3 +162,55 @@ def get_files(
         files = natsorted(files, key=lambda path: str(path).lower())
 
     return files
+
+
+class COLORSTR(Enum):
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    MAGENTA = 35
+    CYAN = 36
+    WHITE = 37
+    BRIGHT_BLACK = 90
+    BRIGHT_RED = 91
+    BRIGHT_GREEN = 92
+    BRIGHT_YELLOW = 93
+    BRIGHT_BLUE = 94
+    BRIGHT_MAGENTA = 95
+    BRIGHT_CYAN = 96
+    BRIGHT_WHITE = 97
+
+
+class FORMATSTR(Enum):
+    BOLD = 1
+    ITALIC = 3
+    UNDERLINE = 4
+
+
+def colorstr(
+    obj: Any,
+    color: Union[COLORSTR, int, str] = COLORSTR.BLUE,
+    fmt: Union[FORMATSTR, int, str] = FORMATSTR.BOLD
+) -> str:
+    """
+    This function is make colorful string for python.
+
+    Args:
+        obj (Any): The object you want to make it print colorful.
+        color (Union[COLORSTR, int, str], optional):
+            The print color of obj. Defaults to COLORSTR.BLUE.
+        fmt (Union[FORMATSTR, int, str], optional):
+            The print format of obj. Defaults to FORMATSTR.BOLD.
+            Options = {
+                'bold', 'underline'
+            }
+
+    Returns:
+        string: color string.
+    """
+    color_code = color.value
+    format_code = fmt.value
+    color_string = f'\033[{format_code};{color_code}m{obj}\033[0m'
+    return color_string
