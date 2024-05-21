@@ -1,6 +1,8 @@
 import os
 import sys
+import time
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List, Union
 from warnings import warn
 
@@ -8,9 +10,11 @@ from MasterTradePy.api import MasterTradeAPI
 from MasterTradePy.constant import (OrderType, PriceType, RCode, Side,
                                     TradingSession, TradingUnit)
 from MasterTradePy.model import *
+from prettytable import PrettyTable
 
 from quotation_system import QuotationSystem
-from utils import ConcreteMarketTrader, get_curdir, get_files, load_yaml
+from utils import (ConcreteMarketTrader, get_curdir, get_files, load_yaml,
+                   translate)
 
 DIR = get_curdir(__file__)
 
@@ -37,8 +41,8 @@ class AutoTraderX:
         # self.quotation = QuotationSystem(self.username, self.password, target)
 
     def login(self):
-        trader = ConcreteMarketTrader()
-        self.api = MasterTradeAPI(trader)
+        self.trader = ConcreteMarketTrader()
+        self.api = MasterTradeAPI(self.trader)
         self.api.SetConnectionHost('solace140.masterlink.com.tw:55555')
 
         # 登入
@@ -57,20 +61,99 @@ class AutoTraderX:
     def get_order_report(self) -> List[Dict[str, Union[str, int]]]:
         self.api.QryRepAll(self.account_number)
 
+        print(f"\n\n查詢委託...\n\n")
+
+        data = translate(self.trader.reports)
+
+        # Create a PrettyTable object
+        table = PrettyTable()
+
+        # Customizing the table headers based on data needs
+        table.field_names = [
+            "類型", "委託書號", "股票代號", "狀態", "訊息", "委託價", "委託量", "成交量"
+        ]
+
+        # Add rows to the table after processing detail data
+        for entry in data:
+            details = entry.pop('詳細資料')
+            price = details.get('price', '')
+            orgQty = details.get('orgQty', '')
+            cumQty = details.get('cumQty', '')
+
+            # Clean status and message fields
+            status = entry['狀態'].split(')')[-1]
+            message = entry['訊息'].replace('Tws:48:', '').strip()
+
+            # Translate table names
+            table_name_translation = {
+                "RPT:TwsNew": "新報告",
+                "ORD:TwsOrd": "委託訂單",
+                "RPT:TwsDeal": "交易報告"
+            }
+            translated_table_name = table_name_translation.get(
+                entry["表格名稱"], entry["表格名稱"])
+
+            # Append processed data into the table
+            row = [
+                translated_table_name,
+                entry["委託書號"],
+                entry["股票代號"],
+                status,
+                message,
+                price,
+                orgQty,
+                cumQty
+            ]
+            table.add_row(row)
+
+        # Set column alignments
+        table.align = "c"
+        table.align["委託價"] = "r"
+        table.align["委託量"] = "r"
+        table.align["成交量"] = "r"
+
+        # Print the table
+        print(table)
+
     # 查詢庫存
     def get_inventory(self) -> List[Dict[str, Union[str, int]]]:
-        # 這個 qid 似乎不是一個即時的回傳結果，必須有 pause 才能看到輸出
-        # 這裡之後看要怎麼串接這個回傳結果
         qid = self.api.ReqInventoryRayinTotal(self.account_number)
-        print(f"\n\n查詢庫存...{qid}\n\n")
+        print(f"\n\n查詢庫存...\n\n")
+
+        time.sleep(1)  # 等待資料填充
+
+        data = translate(self.trader.req_results)
+
+        # Create a PrettyTable object
+        table = PrettyTable()
+
+        # Define the field names (column headers)
+        field_names = ['股票代號', '集保庫存（張）', '零股庫存（股）', '融資庫存（張）', '融券庫存（張）']
+        table.field_names = field_names
+
+        # Add rows to the table
+        for entry in data:
+            row = [
+                entry['股票代號'],
+                str(int(entry['集保庫存股數']) // 1000),
+                entry['零股庫存股數'],
+                str(int(entry['融券庫存股數']) // 1000),
+                str(int(entry['融資庫存股數']) // 1000),
+            ]
+            table.add_row(row)
+
+        table.align = "c"
+        table.align["集保庫存張數"] = "r"
+        table.align["零股庫存股數"] = "r"
+        table.align["融資庫存張數"] = "r"
+        table.align["融券庫存張數"] = "r"
+
+        # Print the table
+        print(table)
 
     # 查詢成交回報
     def get_trade_report(self) -> List[Dict[str, Union[str, int]]]:
         self.api.QryRepDeal(self.account_number)
-
-    # 查詢委託回報
-    def get_order_report(self) -> List[Dict[str, Union[str, int]]]:
-        self.api.QryRepAll(self.account_number)
 
     def set_order(
         self,
@@ -90,9 +173,9 @@ class AutoTraderX:
             side=side,
             symbol=symbol,
             priceType=price_type,
-            price=price,
+            price=str(price),
             tradingUnit=trading_unit,
-            qty=qty,
+            qty=str(qty),
             orderType=order_type,
             tradingAccount=self.account_number,
             userDef=''
@@ -114,10 +197,16 @@ class AutoTraderX:
         pass
 
 
-handler = AutoTraderX(is_sim=False)
+handler = AutoTraderX(is_sim=True)
 
 handler.login()
-handler.get_inventory()
+handler.set_order("2330", Side.Buy, 1000, 100, OrderType.IOC)
+time.sleep(1)
+handler.get_order_report()
+# time.sleep(1)
+# pprint(translate(handler.trader.req_results))
+# breakpoint()
+
 # os.system("pause")
 # handler.get_order_report()
 # handler.get_trade_report()
