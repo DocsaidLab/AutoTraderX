@@ -1,8 +1,7 @@
 import errno
 import os
 import time
-from datetime import datetime
-from enum import Enum, IntEnum
+from enum import Enum
 from pathlib import Path
 from time import struct_time
 from typing import Any, Dict, List, Tuple, Union
@@ -13,6 +12,21 @@ from MasterTradePy.model import (Basic, CrQtyAndDbQty, Inventory, Inventory_S,
                                  SystemEvent)
 from natsort import natsorted
 from tqdm import tqdm as Tqdm
+
+__all__ = [
+    "ConcreteMarketTrader",
+    "load_yaml",
+    "get_curdir",
+    "get_files",
+    "COLORSTR",
+    "FORMATSTR",
+    "colorstr",
+    "translate",
+    "timestamp2time",
+    "time2str",
+    "timestamp2str",
+    "now",
+]
 
 
 class ConcreteMarketTrader(MarketTrader):
@@ -218,22 +232,6 @@ def colorstr(
     color: Union[COLORSTR, int, str] = COLORSTR.BLUE,
     fmt: Union[FORMATSTR, int, str] = FORMATSTR.BOLD
 ) -> str:
-    """
-    This function is make colorful string for python.
-
-    Args:
-        obj (Any): The object you want to make it print colorful.
-        color (Union[COLORSTR, int, str], optional):
-            The print color of obj. Defaults to COLORSTR.BLUE.
-        fmt (Union[FORMATSTR, int, str], optional):
-            The print format of obj. Defaults to FORMATSTR.BOLD.
-            Options = {
-                'bold', 'underline'
-            }
-
-    Returns:
-        string: color string.
-    """
     color_code = color.value
     format_code = fmt.value
     color_string = f'\033[{format_code};{color_code}m{obj}\033[0m'
@@ -283,3 +281,23 @@ def translate(data: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int]]:
             for k, v in d.items()
         } for d in data
     ]
+
+
+def timestamp2time(ts: Union[int, float]):
+    return time.localtime(ts)
+
+
+def time2str(t: struct_time, fmt: str):
+    if not isinstance(t, struct_time):
+        raise TypeError(f'Input type: {type(t)} error.')
+    return time.strftime(fmt, t)
+
+
+def timestamp2str(ts: Union[int, float], fmt: str):
+    return time2str(timestamp2time(ts), fmt)
+
+
+def now(fmt: str = None):
+    t = time.time()
+    t = timestamp2str(time.time(), fmt=fmt)
+    return t
