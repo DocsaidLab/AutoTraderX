@@ -163,3 +163,4 @@ cython_debug/
 *nsconfig*
 *.txt
 *strategy*
+*log*
