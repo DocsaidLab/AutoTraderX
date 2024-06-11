@@ -1,43 +1,42 @@
 import time
 
-from src import Trader, Stock, get_curdir, load_yaml
+from src import Account, get_curdir, load_yaml, QuotationSystem
 
 DIR = get_curdir(__file__)
 
+IS_SIM = False
 
-class AutoTraderX:
+IS_FORCE = True
 
-    def __init__(
-        self,
-        is_sim: bool = True,    # 是否連測試主機
-        is_force: bool = True,  # 是否單一帳號通過強制登入
-        is_event: bool = False,  # 是否連接競賽主機
-        target: str = None,     # 操作標的
-    ):
-        cfg = load_yaml(DIR / "account.yaml")
+IS_EVENT = False
 
-        self.trader = Trader(
-            user=cfg["user"],
-            password=cfg["password"],
-            account_number=str(cfg["account_number"]),
-            is_sim=is_sim,
-            is_force=is_force,
-            is_event=is_event
-        )
+# Load account number
+cfg = load_yaml(DIR / "account.yaml")
 
-        self.stock = Stock(
-            user=cfg["user"],
-            password=cfg["password"],
-        )
+# Login account
+account = Account(
+    user=cfg["user"],
+    password=cfg["password"],
+    account_number=str(cfg["account_number"]),
+    is_sim=IS_SIM,
+    is_force=IS_FORCE,
+    is_event=IS_EVENT
+)
+
+account.login()
+
+# self.quotation = QuotationSystem(
+#     user=cfg["user"],
+#     password=cfg["password"],
+#     subscribe_list=["2409", "2884"]
+# )
 
 
 
-handler = AutoTraderX(is_sim=False)
 
-handler.login()
 # handler.set_order("2330", Side.Buy, 1000, 100, OrderType.IOC)
 # time.sleep(1)
-handler.get_inventory()
+account.get_inventory()
 time.sleep(1)
 # pprint(translate(handler.trader.req_results))
 # breakpoint()
@@ -45,4 +44,4 @@ time.sleep(1)
 # os.system("pause")
 # handler.get_order_report()
 # handler.get_trade_report()
-handler.stop()
+account.stop()
