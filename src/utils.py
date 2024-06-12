@@ -1,4 +1,6 @@
 import errno
+import json
+import math
 import os
 import time
 from enum import Enum
@@ -7,148 +9,53 @@ from time import struct_time
 from typing import Any, Dict, List, Tuple, Union
 
 import yaml
-from MasterTradePy.model import (Basic, CrQtyAndDbQty, Inventory, Inventory_S,
-                                 MarketTrader, ReportOrder, SecInvQty,
-                                 SystemEvent)
 from natsort import natsorted
 from tqdm import tqdm as Tqdm
 
 __all__ = [
-    "ConcreteMarketTrader",
     "load_yaml",
+    "load_json",
+    "dump_json",
     "get_curdir",
     "get_files",
     "COLORSTR",
     "FORMATSTR",
     "colorstr",
-    "translate",
     "timestamp2time",
     "time2str",
     "timestamp2str",
     "now",
+    "divide_into_parts",
+    "divide_range",
 ]
 
 
-class ConcreteMarketTrader(MarketTrader):
-
-    def __init__(self):
-        self.new_order_replies = []
-        self.change_replies = []
-        self.cancel_replies = []
-        self.reports = []
-        self.req_results = []
-        self.system_events = []
-        self.announcement_events = []
-        self.errors = []
-
-    def OnNewOrderReply(self, data) -> None:
-        self.new_order_replies.append(data)
-
-    def OnChangeReply(self, data) -> None:
-        self.change_replies.append(data)
-
-    def OnCancelReply(self, data) -> None:
-        self.cancel_replies.append(data)
-
-    def OnReport(self, data) -> None:
-        if isinstance(data, ReportOrder):
-            report = {
-                "tableName": data.order.tableName,
-                "ordNo": data.order.ordNo,
-                "symbol": data.order.symbol,
-                "status": data.order.status,
-                "lastMessage": data.lastMessage,
-                "details": {}
-            }
-
-            if data.order.tableName == "ORD:TwsOrd":
-                report["details"] = {
-                    "orgQty": data.orgOrder.qty,
-                    "cumQty": data.order.cumQty
-                }
-            elif data.order.tableName == "RPT:TwsDeal":
-                report["details"] = {
-                    "dealPri": data.order.dealPri,
-                    "cumQty": data.order.cumQty,
-                    "leavesQty": data.order.leavesQty
-                }
-            elif data.order.tableName == "RPT:TwsNew":
-                report["details"] = {
-                    "price": data.orgOrder.price,
-                    "orgQty": data.orgOrder.qty
-                }
-            else:
-                report["details"] = {
-                    "price": data.orgOrder.price,
-                    "orgQty": data.orgOrder.qty,
-                    "cumQty": data.order.cumQty
-                }
-
-            self.reports.append(report)
-
-    def OnReqResult(self, workID: str, data) -> None:
-        result = {"workID": workID, "type": type(data).__name__}
-
-        if isinstance(data, Basic):
-            result.update({
-                "symbol": data.symbol,
-                "refPrice": data.refPrice,
-                "riseStopPrice": data.riseStopPrice,
-                "fallStopPrice": data.fallStopPrice
-            })
-        elif isinstance(data, Inventory):
-            result.update({
-                "symbol": data.symbol,
-                "qty": data.qty,
-                "qtyCredit": data.qtyCredit,
-                "qtyDebit": data.qtyDebit,
-                "qtyZero": data.qtyZero
-            })
-        elif isinstance(data, Inventory_S):
-            result.update({
-                "symbol": data.symbol,
-                "qty": data.qty,
-                "qtyCredit": data.qtyCredit,
-                "qtyDebit": data.qtyDebit,
-                "qtyZero": data.qtyZero
-            })
-        elif isinstance(data, SecInvQty):
-            result.update({
-                "symbol": data.symbol,
-                "secInvQty": data.secInvQty,
-                "usedQty": data.usedQty
-            })
-        elif isinstance(data, CrQtyAndDbQty):
-            result.update({
-                "symbol": data.Symbol,
-                "isCrStop": data.IsCrStop,
-                "crQty": data.CrQty,
-                "isDbStop": data.IsDbStop,
-                "dbQty": data.DbQty,
-                "crRate": data.CrRate,
-                "dbRate": data.DbRate,
-                "canShortUnderUnchanged": data.CanShortUnderUnchanged,
-                "dayTrade": data.DayTrade,
-                "dayTradeCName": data.DayTradeCName,
-                "result": data.result
-            })
-
-        self.req_results.append(result)
-
-    def OnSystemEvent(self, data: SystemEvent) -> None:
-        self.system_events.append(data)
-
-    def OnAnnouncementEvent(self, data) -> None:
-        self.announcement_events.append(data)
-
-    def OnError(self, data):
-        self.errors.append(data)
-
-
 def load_yaml(path: Union[Path, str]) -> dict:
-    with open(str(path), 'r') as f:
+    with open(str(path), 'r', encoding='utf-8') as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
     return data
+
+
+def load_json(path: Union[Path, str], **kwargs) -> dict:
+    with open(str(path), 'r', encoding='utf-8') as f:
+        data = json.load(f, **kwargs)
+    return data
+
+
+def dump_json(obj: Any, path: Union[str, Path] = None, **kwargs) -> None:
+    dump_options = {
+        'sort_keys': False,
+        'indent': 2,
+        'ensure_ascii': False,
+        'escape_forward_slashes': False,
+    }
+    dump_options.update(kwargs)
+
+    if path is None:
+        path = Path.cwd() / 'tmp.json'
+
+    with open(str(path), 'w') as f:
+        json.dump(obj, f, **dump_options)
 
 
 def get_curdir(
@@ -238,51 +145,6 @@ def colorstr(
     return color_string
 
 
-def translate(data: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int]]:
-
-    key_mapping_table = {
-        "tableName": "表格名稱",
-        "ordNo": "委託書號",
-        "symbol": "股票代號",
-        "status": "狀態",
-        "lastMessage": "訊息",
-        "details": "詳細資料",
-        "orgQty": "委託股數",
-        "cumQty": "成交股數",
-        "dealPri": "成交價格",
-        "leavesQty": "剩餘股數",
-        "price": "委託價格",
-        "workID": "工作編號",
-        "type": "類型",
-        "refPrice": "參考價",
-        "riseStopPrice": "漲停價",
-        "fallStopPrice": "跌停價",
-        "qty": "集保庫存股數",
-        "qtyCredit": "融資庫存股數",
-        "qtyDebit": "融券庫存股數",
-        "qtyZero": "零股庫存股數",
-        "secInvQty": "總券源股數",
-        "usedQty": "以使用股數",
-        "isCrStop": "是否停資",
-        "crQty": "融資配額股數",
-        "isDbStop": "是否停券",
-        "dbQty": "融券配額股數",
-        "crRate": "資成數",
-        "dbRate": "券成數",
-        "canShortUnderUnchanged": "平盤下是否可下券",
-        "dayTrade": "是否可當沖",
-        "dayTradeCName": "是否可當沖(中文)",
-        "result": "資券配額查詢結果"
-    }
-
-    return [
-        {
-            key_mapping_table[k]: v
-            for k, v in d.items()
-        } for d in data
-    ]
-
-
 def timestamp2time(ts: Union[int, float]):
     return time.localtime(ts)
 
@@ -301,3 +163,50 @@ def now(fmt: str = None):
     t = time.time()
     t = timestamp2str(time.time(), fmt=fmt)
     return t
+
+
+def divide_into_parts(A, B):
+    result = []
+    full_parts = A // B
+    remainder = A % B
+    for _ in range(full_parts):
+        result.append(B)
+    if remainder > 0:
+        result.append(remainder)
+    return result
+
+
+def round_up_price(price):
+    if price < 10:
+        # 小於10元，升降單位為0.01元
+        return math.ceil(price / 0.01) * 0.01
+    elif price < 50:
+        # 10元至未滿50元，升降單位為0.05元
+        return math.ceil(price / 0.05) * 0.05
+    elif price < 100:
+        # 50元至未滿100元，升降單位為0.1元
+        return math.ceil(price / 0.1) * 0.1
+    elif price < 500:
+        # 100元至未滿500元，升降單位為0.5元
+        return math.ceil(price / 0.5) * 0.5
+    elif price < 1000:
+        # 500元至未滿1000元，升降單位為1元
+        return math.ceil(price / 1.0) * 1.0
+    else:
+        # 1000元以上，升降單位為5元
+        return math.ceil(price / 5.0) * 5.0
+
+
+def divide_range(A, B, num_parts):
+    if num_parts == 1:
+        return [A], [A]
+
+    step = (A - B) / (num_parts - 1)
+    result, original = [], []
+    for i in range(num_parts):
+        value = A - step * i
+        original.append(round(value, 2))
+
+        value = round_up_price(value)
+        result.append(round(value, 2))
+    return result, original

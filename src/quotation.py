@@ -1,16 +1,14 @@
 import signal
 import sys
 import time
-from copy import deepcopy
-from typing import Callable, List
+from typing import List
 
-from prettytable import PrettyTable
 from PY_Trade_package.MarketDataMart import MarketDataMart, SystemEvent
 from PY_Trade_package.Product import ProductBasic, ProductTick
 from PY_Trade_package.Sol_D import Sol_D
 from PY_Trade_package.SolPYAPI_Model import RCode
 
-from utils import COLORSTR, colorstr, load_yaml, now
+from .utils import load_yaml, now
 
 
 class QuotationSystem:

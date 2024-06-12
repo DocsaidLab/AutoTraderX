@@ -1,3 +1,3 @@
 from .utils import *
-from .stock import Stock
+from .quotation import QuotationSystem
 from .trader import Trader
