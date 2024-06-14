@@ -30,6 +30,117 @@ __all__ = [
 ]
 
 
+def get_next_tick_price(price, mode: str = "Buy"):
+
+    thresholds = [
+        (10, 0.01),
+        (49.95, 0.05),
+        (99.9, 0.1),
+        (499.5, 0.5),
+        (999, 1),
+        (float('inf'), 5)  # Handle all prices above 999 inclusively
+    ]
+
+    direction = 1 if mode == "Buy" else -1 if mode == "Sell" else None
+
+    if direction is None:
+        raise ValueError("Invalid mode. Please use 'Buy' or 'Sell'.")
+
+    if price <= 0:
+        raise ValueError("Input price must larger than 0.")
+
+    for limit, change in thresholds:
+        if price <= limit:
+            return price + (change * direction)
+
+    raise ValueError("Unexpected price value.")
+
+
+def calc_minimum_profit(
+    price: float,
+    number: int = 1,
+    mode: str = "Buy",
+    transaction_tax_percentage: float = 0.003,
+    handling_fee_percentage: float = 0.001425,
+    discount_percentage: float = 0.6,
+    is_day_trading: bool = False
+) -> float:
+    if mode not in ["Buy", "Sell"]:
+        raise ValueError("Input mode must be in ['Buy', 'Sell']")
+
+    day_trading_discount_percentage = 0.5 if is_day_trading else 1
+
+    if mode == "Buy":
+        initial_price = price
+        buy_handling_fee = math.ceil(price * number * 1000 * handling_fee_percentage * discount_percentage)
+        buy_handling_fee = max(buy_handling_fee, 20)
+
+        iteration = 0
+        max_iterations = 1000  # Prevent infinite loop
+
+        while iteration < max_iterations:
+            price = round(get_next_tick_price(price, mode=mode), 3)
+            sell_handling_fee = math.ceil(price * number * 1000 * handling_fee_percentage * discount_percentage)
+            sell_handling_fee = max(sell_handling_fee, 20)
+            transaction_tax = math.ceil(price * number * 1000 * transaction_tax_percentage * day_trading_discount_percentage)
+
+            profit = (price - initial_price) * number * 1000 - buy_handling_fee - sell_handling_fee - transaction_tax
+            if profit > 0:
+                break
+
+            iteration += 1
+
+        if iteration == max_iterations:
+            raise Exception("Failed to find a profitable price within the max iterations.")
+
+        info = {
+            "buy_price": round(initial_price, 3),
+            "number": number,
+            "buy_handling_fee": buy_handling_fee,
+            "sell_handling_fee": sell_handling_fee,
+            "transaction_tax": transaction_tax,
+            "sell_price": round(price, 3),
+            "estimated_profit": int(profit)
+        }
+
+        return price, info
+
+    elif mode == "Sell":
+        initial_price = price
+        sell_handling_fee = math.ceil(price * number * 1000 * handling_fee_percentage * discount_percentage)
+        sell_handling_fee = max(sell_handling_fee, 20)
+        transaction_tax = math.ceil(price * number * 1000 * transaction_tax_percentage * day_trading_discount_percentage)
+
+        iteration = 0
+        max_iterations = 1000  # Prevent infinite loop
+
+        while iteration < max_iterations:
+            price = round(get_next_tick_price(price, mode=mode), 3)
+            buy_handling_fee = math.ceil(price * number * 1000 * handling_fee_percentage * discount_percentage)
+            buy_handling_fee = max(sell_handling_fee, 20)
+
+            profit = (initial_price - price) * number * 1000 - buy_handling_fee - sell_handling_fee - transaction_tax
+            if profit > 0:
+                break
+
+            iteration += 1
+
+        if iteration == max_iterations:
+            raise Exception("Failed to find a profitable price within the max iterations.")
+
+        info = {
+            "buy_price": round(initial_price, 3),
+            "number": number,
+            "buy_handling_fee": buy_handling_fee,
+            "sell_handling_fee": sell_handling_fee,
+            "transaction_tax": transaction_tax,
+            "sell_price": round(price, 3),
+            "estimated_profit": int(profit)
+        }
+
+        return price, info
+
+
 def load_yaml(path: Union[Path, str]) -> dict:
     with open(str(path), 'r', encoding='utf-8') as f:
         data = yaml.load(f, Loader=yaml.FullLoader)

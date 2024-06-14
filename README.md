@@ -159,3 +159,20 @@
 - 2024/06/12
 
   - 完成成交明細存取機制，但需要有些測試的資料，剛好本日沒有成交明細，等到有成交紀錄的時候再來測。
+
+- 2024/06/14
+
+  - 完成計算最低獲利成交價計算機制，實作在 `calc_minimum_profit` 函數，可以指定買賣方向，交易稅、手續費折讓等。
+
+    ```python
+    def calc_minimum_profit(
+      price: float,
+      number: int = 1,
+      mode: str = "Buy",
+      transaction_tax_percentage: float = 0.003,
+      handling_fee_percentage: float = 0.001425,
+      discount_percentage: float = 0.6,
+      is_day_trading: bool = False
+    ) -> float:
+      # 以下省略
+    ```
