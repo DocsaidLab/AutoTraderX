@@ -17,35 +17,43 @@
 
 本專案的使用方式和設定的說明，請參閱 [**AutoTraderX Documents**](https://docsaid.org/docs/category/autotraderx)。
 
-## 快速安裝
+## 安裝步驟
 
 目前沒有提供 Pypi 上的安裝包，短時間內也沒有相關規劃。
 
 若要使用本專案，你必須直接從 Github 上 clone 本專案，然後安裝相依套件。
 
-## 安裝步驟
+本專案受限於元富證券 API，只能運行在 Windows 作業系統上，安裝前請確保你已經在 Windows 作業系統上配置好 Python 環境。
+
+### Python 環境配置
+
+請參考我們所撰寫的文章進行安裝：
+
+- [**簡單配置 Win11 系統的 Python 環境**](https://docsaid.org/blog/windows-python-settings)
+
+### 安裝 AutoTraderX
 
 1. **Clone 本專案：**
 
-   ```bash
+   ```powershell
    git clone https://github.com/DocsaidLab/AutoTraderX.git
    ```
 
 2. **進入專案目錄：**
 
-   ```bash
+   ```powershell
    cd AutoTraderX
    ```
 
 3. **安裝相依套件：**
 
-   ```bash
+   ```powershell
    pip install setuptools wheel
    ```
 
 4. **建立打包文件：**
 
-   ```bash
+   ```powershell
    python setup.py bdist_wheel
    ```
 
@@ -75,23 +83,23 @@ pip install .\SolPYAPI\PY_TradeD-0.1.15-py3-none-any.whl
 
 安裝完成後即可以使用本專案。
 
-:::tip
-本專案亦有提供元富證券 Python API 的 .whl 安裝檔案，在 `MasterLink_PythonAPI` 資料夾中。
+- **補充說明：**
 
-你可以直接執行以下指令安裝：
+  本專案亦有提供元富證券 Python API 的 .whl 安裝檔案，在 `MasterLink_PythonAPI` 資料夾中。
 
-```powershell
-.\run_install.bat
-```
+  你可以直接執行以下指令安裝：
 
-請注意我們不會更新這些檔案，請自行至元富證券官方網站下載最新版本。
-:::
+  ```powershell
+  .\run_install.bat
+  ```
+
+  請注意我們不會更新這些檔案，請自行至元富證券官方網站下載最新版本。
 
 ## 測試安裝
 
 你可以使用以下指令來測試安裝是否成功：
 
-```bash
+```powershell
 python -c "import autotraderx; print(autotraderx.__version__)"
 # >>> 0.1.0
 ```
