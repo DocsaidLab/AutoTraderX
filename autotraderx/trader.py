@@ -5,12 +5,10 @@ from MasterTradePy.api import MasterTradeAPI
 from MasterTradePy.constant import (OrderType, PriceType, RCode, Side,
                                     TradingSession, TradingUnit)
 from MasterTradePy.model import *
-from MasterTradePy.model import (Basic, CrQtyAndDbQty, Inventory, Inventory_S,
-                                 MarketTrader, ReportOrder, SecInvQty,
-                                 SystemEvent)
+from MasterTradePy.model import MarketTrader, SystemEvent
 from prettytable import PrettyTable
 
-from .utils import dump_json, get_curdir, load_json, now
+from .utils import get_curdir, load_json
 
 DIR = get_curdir(__file__)
 
@@ -66,7 +64,7 @@ def translate(data: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int]]:
     ]
 
 
-class ConcreteMarketTrader(MarketTrader):
+class CustomMarketTrader(MarketTrader):
 
     def __init__(self):
         self.new_order_replies = []
@@ -88,77 +86,10 @@ class ConcreteMarketTrader(MarketTrader):
         self.cancel_replies.append(data)
 
     def OnReport(self, data) -> None:
-        if isinstance(data, ReportOrder):
-
-            report = {
-                "tableName": data.order.tableName,
-                "ordNo": data.order.ordNo,
-                "symbol": data.order.symbol,
-                "status": data.order.status,
-                "lastMessage": data.lastMessage,
-                "lastdealTime": data.order.lastdealTime,
-                "orgQty": data.orgOrder.qty,
-                "cumQty": data.order.cumQty,
-                "dealPri": data.order.dealPri,
-                "leavesQty": data.order.leavesQty,
-                "price": data.orgOrder.price,
-                "trxTime": data.order.trxTime,
-                "dealPri": data.order.dealPri,
-                "side": data.order.side,
-                "priceType": data.order.priceType,
-                "orderType": data.order.orderType
-            }
-
-            self.reports.append(report)
+        self.reports.append(data)
 
     def OnReqResult(self, workID: str, data) -> None:
-        result = {"workID": workID, "type": type(data).__name__}
-
-        if isinstance(data, Basic):
-            result.update({
-                "symbol": data.symbol,
-                "refPrice": data.refPrice,
-                "riseStopPrice": data.riseStopPrice,
-                "fallStopPrice": data.fallStopPrice
-            })
-        elif isinstance(data, Inventory):
-            result.update({
-                "symbol": data.symbol,
-                "qty": data.qty,
-                "qtyCredit": data.qtyCredit,
-                "qtyDebit": data.qtyDebit,
-                "qtyZero": data.qtyZero
-            })
-        elif isinstance(data, Inventory_S):
-            result.update({
-                "symbol": data.symbol,
-                "qty": data.qty,
-                "qtyCredit": data.qtyCredit,
-                "qtyDebit": data.qtyDebit,
-                "qtyZero": data.qtyZero
-            })
-        elif isinstance(data, SecInvQty):
-            result.update({
-                "symbol": data.symbol,
-                "secInvQty": data.secInvQty,
-                "usedQty": data.usedQty
-            })
-        elif isinstance(data, CrQtyAndDbQty):
-            result.update({
-                "symbol": data.Symbol,
-                "isCrStop": data.IsCrStop,
-                "crQty": data.CrQty,
-                "isDbStop": data.IsDbStop,
-                "dbQty": data.DbQty,
-                "crRate": data.CrRate,
-                "dbRate": data.DbRate,
-                "canShortUnderUnchanged": data.CanShortUnderUnchanged,
-                "dayTrade": data.DayTrade,
-                "dayTradeCName": data.DayTradeCName,
-                "result": data.result
-            })
-
-        self.req_results.append(result)
+        self.req_results.append(data)
 
     def OnSystemEvent(self, data: SystemEvent) -> None:
         self.system_events.append(data)
@@ -180,6 +111,7 @@ class Trader:
         is_sim: bool = True,    # 是否連測試主機
         is_force: bool = True,  # 是否單一帳號通過強制登入
         is_event: bool = False,  # 是否連接競賽主機
+        verbose: bool = True # 是否輸出資訊至 cmd
     ):
         self.username = user
         self.password = password
@@ -187,28 +119,44 @@ class Trader:
         self.is_sim = is_sim
         self.is_force = is_force
         self.is_event = is_event
+        self.verbose = verbose
         self.status = None
-
         self.stock_info = load_json(DIR / "stock_infos.json")
 
     def login(self):
-        self.trader = ConcreteMarketTrader()
+        self.trader = CustomMarketTrader()
         self.api = MasterTradeAPI(self.trader)
         self.api.SetConnectionHost('solace140.masterlink.com.tw:55555')
-
-        # 登入
-        rc = self.api.Login(self.username, self.password,
-                            self.is_sim, self.is_force, self.is_event)
+        rc = self.api.Login(
+            self.username,
+            self.password,
+            self.is_sim,
+            self.is_force,
+            self.is_event
+        )
         if rc != RCode.OK:
             print("登入失敗，請檢查使用者名稱和密碼是否正確")
-
         self.status = True
 
     def stop(self):
         self.api.disClient()
         self.status = False
 
-    def process_data(self, data, only_deal: bool = False):
+    # 查詢成交回報
+    def get_trade_report(self) -> List[Dict[str, Union[str, int]]]:
+        self.api.QryRepDeal(self.account_number)
+        print(f"\n\n查詢成交...\n\n")
+        time.sleep(1)
+        return self.process_data(self.trader.reports, only_deal=True)
+
+    # 查詢委託回報
+    def get_order_report(self) -> List[Dict[str, Union[str, int]]]:
+        self.api.QryRepAll(self.account_number)
+        print(f"\n\n查詢委託...\n\n")
+        time.sleep(1)
+        return self.process_data(self.trader.reports)
+
+    def process_data(self, trader_reports, only_deal: bool = False):
         export_data = []
 
         # Create a PrettyTable object
@@ -238,21 +186,9 @@ class Trader:
         }
 
         # Add rows to the table after processing detail data
-        for entry in data:
+        for data in trader_reports:
 
-            price = entry["委託價格"]
-            orgQty = entry["委託股數"]
-            cumQty = entry["成交股數"]
-
-            # Clean status and message fields
-            status = entry['狀態'].split(')')[-1]
-            message = entry['訊息'].replace('Tws:48:', '').strip()
-
-            deal_price = ""
-            if status == "全部成交":
-                deal_price = entry["委託價格"] if entry["成交價格"] == "" else entry["成交價格"]
-
-            if only_deal and status != "全部成交":
+            if only_deal and "全部成交" not in data.order.status:
                 continue
 
             # Translate table names
@@ -261,45 +197,44 @@ class Trader:
                 "ORD:TwsOrd": "委託訂單",
                 "RPT:TwsDeal": "交易報告"
             }
-            translated_table_name = table_name_translation.get(
-                entry["表格名稱"], entry["表格名稱"])
+            translated_table_name = table_name_translation[data.order.tableName]
 
             # Append processed data into the table
             row = [
                 translated_table_name,
-                entry["委託書號"],
-                self.stock_info[entry['股票代號']]["名稱"],
-                entry["股票代號"],
-                side_map[entry["買賣別"]],
-                price_type_map[entry["委託方式(價格)"]],
-                order_type_map[entry["委託方式(效期)"]],
-                price,
-                orgQty,
-                deal_price,
-                cumQty,
-                status,
-                entry["委託時間"],
-                entry["成交時間"],
-                message
+                data.order.ordNo,
+                self.stock_info[data.order.symbol]["名稱"],
+                data.order.symbol,
+                side_map[data.order.side],
+                price_type_map[data.order.priceType],
+                order_type_map[data.order.orderType],
+                data.orgOrder.price,
+                data.orgOrder.qty,
+                data.order.dealPri,
+                data.order.cumQty,
+                data.order.status.split(')')[-1],
+                data.order.trxTime,
+                data.order.lastdealTime,
+                data.lastMessage.replace('Tws:48:', '').strip()
             ]
             table.add_row(row)
 
             export_data.append({
                 "類型": translated_table_name,
-                "委託書號": entry["委託書號"],
-                "股票": self.stock_info[entry['股票代號']]["名稱"],
-                "股票代號": entry["股票代號"],
-                "買賣別": side_map[entry["買賣別"]],
-                "委託方式(價格)": price_type_map[entry["委託方式(價格)"]],
-                "委託方式(效期)": order_type_map[entry["委託方式(效期)"]],
-                "委託價": price,
-                "委託量": orgQty,
-                "成交價": deal_price,
-                "成交量": cumQty,
-                "狀態": status,
-                "委託時間": entry["委託時間"],
-                "成交時間": entry["成交時間"],
-                "訊息": message
+                "委託書號": data.order.ordNo,
+                "股票": self.stock_info[data.order.symbol]["名稱"],
+                "股票代號": data.order.symbol,
+                "買賣別": side_map[data.order.side],
+                "委託方式(價格)": price_type_map[data.order.priceType],
+                "委託方式(效期)": order_type_map[data.order.orderType],
+                "委託價": data.orgOrder.price,
+                "委託量": data.orgOrder.qty,
+                "成交價": data.order.dealPri,
+                "成交量": data.order.cumQty,
+                "狀態": data.order.status,
+                "委託時間": data.order.trxTime,
+                "成交時間": data.order.lastdealTime,
+                "訊息": data.lastMessage
             })
 
         # Set column alignments
@@ -308,68 +243,45 @@ class Trader:
         table.align["委託量"] = "r"
         table.align["成交量"] = "r"
 
-        # Print the table
-        print(table)
+        if self.verbose:
+            # Print the table
+            print(table)
+            print('\n')
 
         return export_data
 
-    # 查詢成交回報
-    def get_trade_report(self) -> List[Dict[str, Union[str, int]]]:
-        self.api.QryRepDeal(self.account_number)
-
-        print(f"\n\n查詢成交...\n\n")
-        time.sleep(1)
-
-        data = translate(self.trader.reports)
-        data = self.process_data(data, only_deal=True)
-        return data
-
-    # 查詢委託回報
-    def get_order_report(self) -> List[Dict[str, Union[str, int]]]:
-        self.api.QryRepAll(self.account_number)
-
-        print(f"\n\n查詢委託...\n\n")
-        time.sleep(1)
-
-        data = translate(self.trader.reports)
-        data = self.process_data(data)
-        return data
-
     # 查詢庫存
     def get_inventory(self) -> List[Dict[str, Union[str, int]]]:
-        qid = self.api.ReqInventoryRayinTotal(self.account_number)
+        self.api.ReqInventoryRayinTotal(self.account_number)
         print(f"\n\n查詢庫存...\n\n")
-
         time.sleep(1)  # 等待資料填充
-
-        data = translate(self.trader.req_results)
-        export_data = {}
 
         # Create a PrettyTable object
         table = PrettyTable()
+        export_data = {}
 
         # Define the field names (column headers)
         field_names = ['股票', '股票代號', '集保庫存（張）', '零股庫存（股）', '融資庫存（張）', '融券庫存（張）']
         table.field_names = field_names
 
         # Add rows to the table
-        for entry in data:
+        for data in self.trader.req_results:
             row = [
-                self.stock_info[entry['股票代號']]["名稱"],
-                entry['股票代號'],
-                str(int(entry['集保庫存股數']) // 1000),
-                entry['零股庫存股數'],
-                str(int(entry['融券庫存股數']) // 1000),
-                str(int(entry['融資庫存股數']) // 1000),
+                self.stock_info[data.symbol]["名稱"],
+                data.symbol,
+                str(int(data.qty) // 1000),
+                data.qtyZero,
+                str(int(data.qtyCredit) // 1000),
+                str(int(data.qtyDebit) // 1000),
             ]
             table.add_row(row)
 
-            export_data[entry['股票代號']] = {
-                "股票": self.stock_info[entry['股票代號']]["名稱"],
-                "集保庫存（張）": str(int(entry['集保庫存股數']) // 1000),
-                "零股庫存（股）": entry['零股庫存股數'],
-                "融資庫存（張）": str(int(entry['融券庫存股數']) // 1000),
-                "融券庫存（張）": str(int(entry['融資庫存股數']) // 1000),
+            export_data[data.symbol] = {
+                "股票": self.stock_info[data.symbol]["名稱"],
+                "集保庫存（張）": str(int(data.qty) // 1000),
+                "零股庫存（股）": data.qtyZero,
+                "融資庫存（張）": str(int(data.qtyCredit) // 1000),
+                "融券庫存（張）": str(int(data.qtyDebit) // 1000),
             }
 
         table.align = "c"
@@ -378,8 +290,9 @@ class Trader:
         table.align["融資庫存張數"] = "r"
         table.align["融券庫存張數"] = "r"
 
-        # Print the table
-        print(table)
+        if self.verbose:
+            # Print the table
+            print(table)
 
         return export_data
 
@@ -415,35 +328,31 @@ class Trader:
             print(u'下單失敗! 請再次執行程式，依據回報資料修正輸入')
 
     def buy(self, symbol: str, qty: int, price: float):
-        self.set_order(symbol, Side.BUY, qty * 1000, price)
+        self.set_order(symbol, Side.Buy, qty * 1000, price)
 
     def sell(self, symbol: str, qty: int, price: float):
-        self.set_order(symbol, Side.SELL, qty * 1000, price)
+        self.set_order(symbol, Side.Sell, qty * 1000, price)
 
-    def export_deal_infos(self):
-        data = self.get_trade_report()
-        report = {}
-        for d in data:
-            if "成交" in d["狀態"]:
+    def change_price(self, order_number: str, mod_price: float):
+        replaceOrder = OrderPriceChange(
+            ordNo=order_number,
+            price=str(mod_price),
+            tradingAccount=self.account_number
+        )
+        rcode = self.api.ChangeOrderPrice(replaceOrder)
+        if rcode == RCode.OK:
+            print(u'已送出委託')
+        else:
+            print(u'改價失敗! 請再次執行程式，依據回報資料修正輸入')
 
-                if d["股票代號"] not in report:
-                    report[d["股票代號"]] = []
-
-                report[d["股票代號"]].append({
-                    "股票": d["股票"],
-                    "股票代號": d["股票代號"],
-                    "成交時間": now("%Y%m%d")+d["成交時間"],
-                    "成交價": d["成交價"],
-                    "成交量": d["成交量"],
-                    "買賣別": d["買賣別"]
-                })
-
-        for k, v in report.items():
-
-            if (fp := DIR / f"deal_info_{k}.json").exists():
-                deal_info = load_json(fp)
-                deal_info.extend(v)
-            else:
-                deal_info = v
-
-            dump_json(deal_info, fp)
+    def change_qty(self, order_number, mod_qty: int):
+        replaceOrder = OrderQtyChange(
+            ordNo=order_number,
+            qty=str(mod_qty),
+            tradingAccount=self.account_number
+        )
+        rcode = self.api.ChangeOrderQty(replaceOrder)
+        if rcode == RCode.OK:
+            print(u'已送出委託')
+        else:
+            print(u'改量失敗! 請再次執行程式，依據回報資料修正輸入')

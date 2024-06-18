@@ -1,1 +1,2 @@
 recursive-include autotraderx/Configs *
+recursive-include autotraderx *.json

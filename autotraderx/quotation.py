@@ -8,7 +8,7 @@ from PY_Trade_package.Product import ProductBasic, ProductTick
 from PY_Trade_package.Sol_D import Sol_D
 from PY_Trade_package.SolPYAPI_Model import RCode
 
-from .utils import load_yaml, now
+from .utils import now
 
 
 class QuotationSystem:
@@ -29,15 +29,17 @@ class QuotationSystem:
         market_data_mart: MarketDataMart = self._setup_market_data_mart()
         self.sol_D: Sol_D = self._setup_sol_d(market_data_mart) # 相依性注入
 
+
+    def run(self):
         self.login()
-        for prod_code in subscribe_list:
-            self.sol_D.Subscribe(product_type, prod_code)
+        for prod_code in self.subscribe_list:
+            self.sol_D.Subscribe(self.product_type, prod_code)
 
             # 建立初始成交紀錄表
             markdown_lines = []
             markdown_lines.append(f"# 日成交資料 - {prod_code}\n")
             markdown_lines.append("| 成交時間 | 成交價 | 漲跌 | 成交量 | 總量 |")
-            markdown_lines.append("| ---- | ---- | ---- | ---- | ---- |")
+            markdown_lines.append("| ---- | ---- | ---- | ---- | ---- |\n")
             formatted_text = "\n".join(markdown_lines)
 
             with open(f'log_{now("%Y%m%d")}_{prod_code}_match.md', "a", encoding="utf-8") as f:
@@ -85,20 +87,12 @@ class QuotationSystem:
 
     def _setup_sol_d(self, market_data_mart: MarketDataMart) -> Sol_D:
         sol_d = Sol_D(market_data_mart, __file__)
-        sol_d.Set_OnSystemEvent_DAPI(self.on_system_event)  # 驗證失敗訊息
-        sol_d.Set_OnUpdateBasic_DAPI(self.on_update_basic)  # 驗證商品資料
-        sol_d.Set_OnMatch_DAPI(self.on_match)               # 驗證成交行情
-        sol_d.Set_OnLogEvent(self.event_on_log)             # 回傳錯誤通知
-        sol_d.Set_OnInterruptEvent(self.event_on_interrupt)  # server回傳中斷事件
-        sol_d.Set_OnAnnouncementEvent_DAPI(self.on_announcement_event)  # 公告
-        sol_d.Set_OnLoginResultEvent_DAPI(self.on_login_result_event)  # 登入是否成功
-        sol_d.Set_OnVerifiedEvent_DAPI(self.on_verified_event)  # 驗證成功與否
         return sol_d
 
     def observer_on_system_event(self, data: SystemEvent):
         print(f"\系統訊息: {data}")
 
-    def event_on_update_basic(self, data):
+    def event_on_update_basic(self, data: ProductBasic):
         """ 紀錄商品基本資料 """
 
         infos = {
@@ -145,14 +139,14 @@ class QuotationSystem:
         with open(f'log_{now("%Y%m%d")}_{data.Symbol}_info.md', "a", encoding="utf-8") as f:
             f.write(formatted_text)
 
-    def event_on_order_book(self, data):
+    def event_on_order_book(self, data: ProductTick):
         """ 接收五檔行情資料 """
         self.buy_prices = data.BuyPrice
         self.buy_qtys = data.BuyQty
         self.sell_prices = data.SellPrice
         self.sell_qtys = data.SellQty
 
-    def event_on_match(self, data):
+    def event_on_match(self, data: ProductTick):
         """ 接收成交行情資料 """
 
         pre_close_price = self.stock_infos[data.Symbol]["pre_close_price"]
@@ -166,80 +160,3 @@ class QuotationSystem:
         formatted_text = f"| {data.MatchTime} | {data.MatchPrice} | {diff} | {data.MatchQty} | {data.TotalMatchQty}\n"
         with open(f'log_{now("%Y%m%d")}_{data.Symbol}_match.md', "a", encoding="utf-8") as f:
             f.write(formatted_text)
-
-    def on_system_event(self, data: SystemEvent):
-        """ 驗證失敗訊息 """
-        try:
-            msg: str = f"[{data.rcode}]{data.msg}"
-            print(msg)
-        except Exception as ex:
-            pass
-
-    def on_update_basic(self, data: ProductBasic):
-        """ 傳來驗證商品資料 """
-        infos = {
-            "Exchange": data.Exchange,
-            "Symbol": data.Symbol,
-            "TodayRefPrice": data.TodayRefPrice,
-            "RiseStopPrice": data.RiseStopPrice,
-            "FallStopPrice": data.FallStopPrice,
-            "ChineseName": data.ChineseName
-        }
-        print(f"\n UpdateBasic: {infos}")
-
-    def on_match(self, data: ProductTick):
-        """ 傳來驗證成交行情 """
-        try:
-
-            infos = {
-                "Symbol": data.Symbol,
-                "TotalMatchQty": data.TotalMatchQty,
-                "MatchPrice": data.MatchPrice,
-                "MatchQty": data.MatchQty
-            }
-
-            print(f"\n OnMatch {infos}")
-
-        except Exception as ex:
-            pass
-
-    def event_on_log(self, data):
-        print(f"LogEvent: {data}")
-
-    def event_on_interrupt(self, data):
-        print(f"InterruptEvent: {data}")
-
-    def on_announcement_event(self, data):
-        """ 公告 """
-        try:
-            print(f"Announcement: {data}")
-        except Exception as ex:
-            pass
-
-    def on_login_result_event(self, is_succ: bool, msg: str):
-        """ 登入是否成功 """
-        try:
-            print(f"IsSucc:{is_succ}, Msg:{msg}")
-        except Exception as ex:
-            pass
-
-    def on_verified_event(self, data):
-        """ 驗證成功與否 """
-        try:
-            print(f"MarketKind:{data.MarketKind}, IsSucc:{data.IsSucc}, Msg:{data.Msg}")
-        except Exception as ex:
-            pass
-
-
-if __name__ == '__main__':
-
-    cfg = load_yaml("account.yaml")
-    user = cfg["user"]
-    password = cfg["password"]
-
-
-    handler = QuotationSystem(
-        user=user,
-        password=password,
-        subscribe_list=["2409", "2884"]
-    )
