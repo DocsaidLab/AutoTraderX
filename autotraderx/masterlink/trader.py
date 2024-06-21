@@ -8,7 +8,7 @@ from MasterTradePy.model import *
 from MasterTradePy.model import MarketTrader, SystemEvent
 from prettytable import PrettyTable
 
-from .utils import get_curdir, load_json
+from ..utils import get_curdir, load_json
 
 DIR = get_curdir(__file__)
 
@@ -121,7 +121,7 @@ class Trader:
         self.is_event = is_event
         self.verbose = verbose
         self.status = None
-        self.stock_info = load_json(DIR / "stock_infos.json")
+        self.stock_info = load_json(DIR.parent / "stock_infos.json")
 
     def login(self):
         self.trader = CustomMarketTrader()

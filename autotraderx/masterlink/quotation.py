@@ -8,7 +8,7 @@ from PY_Trade_package.Product import ProductBasic, ProductTick
 from PY_Trade_package.Sol_D import Sol_D
 from PY_Trade_package.SolPYAPI_Model import RCode
 
-from .utils import now
+from ..utils import now
 
 
 class QuotationSystem:
