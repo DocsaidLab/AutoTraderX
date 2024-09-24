@@ -17,7 +17,7 @@ This project mainly integrates with brokerage APIs for automated trading.
 
 ## Technical Documentation
 
-For usage and configuration instructions, please refer to the [**AutoTraderX Documents**](https://docsaid.org/en/docs/autotraderx/intro).
+For usage and configuration instructions, please refer to the [**AutoTraderX Documents**](https://docsaid.org/en/docs/autotraderx).
 
 ## Installation
 
@@ -31,7 +31,7 @@ This project is restricted to use with the MasterLink Python API and operates on
 
 Refer to our guide for setting up Python on Windows:
 
-- [**Setting up Python Environment on Windows 11**](https://docsaid.org/blog/windows-python-settings)
+- [**Setting up Python Environment on Windows 11**](https://docsaid.org/en/blog/windows-python-settings)
 
 ### Installing AutoTraderX
 

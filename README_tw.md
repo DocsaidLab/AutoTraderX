@@ -17,7 +17,7 @@
 
 ## 技術文件
 
-本專案的使用方式和設定的說明，請參閱 [**AutoTraderX Documents**](https://docsaid.org/docs/autotraderx/intro/)。
+本專案的使用方式和設定的說明，請參閱 [**AutoTraderX Documents**](https://docsaid.org/docs/autotraderx)。
 
 ## 安裝步驟
 
